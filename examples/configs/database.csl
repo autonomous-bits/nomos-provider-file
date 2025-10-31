@@ -1,0 +1,10 @@
+database:
+  host: localhost
+  port: 5432
+  username: admin
+  database: myapp
+
+connection-pool:
+  min: 5
+  max: 20
+  timeout: 30
