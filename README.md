@@ -107,6 +107,11 @@ The provider accepts the following configuration in the `Init` RPC call:
 
 - Go 1.24.4 or later
 - Protocol Buffers compiler (for regenerating proto stubs)
+- Local clone of the Nomos repository (for now, until modules are published)
+
+### Note on Dependencies
+
+This provider currently uses `replace` directives in `go.mod` to reference the Nomos libraries locally. For production releases, these dependencies need to be published as proper Go modules or vendored into the repository.
 
 ### Building
 
