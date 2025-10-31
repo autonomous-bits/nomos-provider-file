@@ -1,0 +1,72 @@
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+    - go mod download
+
+builds:
+  - id: provider
+    main: ./cmd/provider
+    binary: nomos-provider-file-{{ .Version }}-{{ .Os }}-{{ .Arch }}
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{ .Version }}
+
+archives:
+  - format: binary
+    name_template: '{{ .Binary }}'
+
+checksum:
+  name_template: 'SHA256SUMS'
+  algorithm: sha256
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - Merge pull request
+      - Merge branch
+
+release:
+  github:
+    owner: autonomous-bits
+    name: nomos-provider-file
+  draft: false
+  prerelease: auto
+  name_template: "Release v{{ .Version }}"
+  header: |
+    ## Nomos File Provider v{{ .Version }}
+    
+    This release provides prebuilt binaries for the Nomos file provider.
+    
+    ### Installation
+    
+    Download the appropriate binary for your platform and verify the checksum:
+    
+    ```bash
+    # Download binary
+    curl -LO https://github.com/autonomous-bits/nomos-provider-file/releases/download/v{{ .Version }}/nomos-provider-file-{{ .Version }}-<os>-<arch>
+    
+    # Verify checksum
+    curl -LO https://github.com/autonomous-bits/nomos-provider-file/releases/download/v{{ .Version }}/SHA256SUMS
+    shasum -a 256 -c SHA256SUMS
+    
+    # Make executable
+    chmod +x nomos-provider-file-{{ .Version }}-<os>-<arch>
+    ```
+    
+    ### Changes
+  footer: |
+    **Full Changelog**: https://github.com/autonomous-bits/nomos-provider-file/compare/{{ .PreviousTag }}...{{ .Tag }}
