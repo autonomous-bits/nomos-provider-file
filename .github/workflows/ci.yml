@@ -10,17 +10,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout provider
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          path: nomos-provider-file
-
-      - name: Checkout nomos
-        uses: actions/checkout@v4
-        with:
-          repository: autonomous-bits/nomos
-          token: ${{ secrets.GITHUB_TOKEN }}
-          path: nomos
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -28,32 +19,21 @@ jobs:
           go-version: '1.25.3'
 
       - name: Download dependencies
-        working-directory: nomos-provider-file
         run: go mod download
 
       - name: Run tests
-        working-directory: nomos-provider-file
         run: go test -v -race -coverprofile=coverage.out ./...
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4
         with:
-          file: nomos-provider-file/coverage.out
+          file: ./coverage.out
 
   lint:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout provider
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          path: nomos-provider-file
-
-      - name: Checkout nomos
-        uses: actions/checkout@v4
-        with:
-          repository: autonomous-bits/nomos
-          token: ${{ secrets.GITHUB_TOKEN }}
-          path: nomos
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -65,7 +45,6 @@ jobs:
         with:
           version: latest
           install-mode: goinstall
-          working-directory: nomos-provider-file
 
   build:
     runs-on: ubuntu-latest
@@ -74,17 +53,8 @@ jobs:
         goos: [darwin, linux]
         goarch: [amd64, arm64]
     steps:
-      - name: Checkout provider
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          path: nomos-provider-file
-
-      - name: Checkout nomos
-        uses: actions/checkout@v4
-        with:
-          repository: autonomous-bits/nomos
-          token: ${{ secrets.GITHUB_TOKEN }}
-          path: nomos
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -92,7 +62,6 @@ jobs:
           go-version: '1.25.3'
 
       - name: Build
-        working-directory: nomos-provider-file
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
