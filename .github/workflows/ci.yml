@@ -56,7 +56,7 @@ jobs:
       GOPRIVATE: github.com/autonomous-bits/nomos
     strategy:
       matrix:
-        goos: [darwin, linux]
+        goos: [darwin, linux, windows]
         goarch: [amd64, arm64]
     steps:
       - name: Checkout

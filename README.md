@@ -28,20 +28,44 @@ curl -LO https://github.com/autonomous-bits/nomos-provider-file/releases/downloa
 
 # Linux AMD64
 curl -LO https://github.com/autonomous-bits/nomos-provider-file/releases/download/v0.1.0/nomos-provider-file-0.1.0-linux-amd64
+
+# Linux ARM64
+curl -LO https://github.com/autonomous-bits/nomos-provider-file/releases/download/v0.1.0/nomos-provider-file-0.1.0-linux-arm64
+
+# Windows AMD64
+curl -LO https://github.com/autonomous-bits/nomos-provider-file/releases/download/v0.1.0/nomos-provider-file-0.1.0-windows-amd64.exe
+
+# Windows ARM64
+curl -LO https://github.com/autonomous-bits/nomos-provider-file/releases/download/v0.1.0/nomos-provider-file-0.1.0-windows-arm64.exe
 ```
 
 Verify the checksum:
 
+**Linux/macOS:**
 ```bash
 curl -LO https://github.com/autonomous-bits/nomos-provider-file/releases/download/v0.1.0/SHA256SUMS
 shasum -a 256 -c SHA256SUMS
 ```
 
+**Windows (PowerShell):**
+```powershell
+curl -LO https://github.com/autonomous-bits/nomos-provider-file/releases/download/v0.1.0/SHA256SUMS
+# Verify checksum manually or use certutil
+certutil -hashfile nomos-provider-file-0.1.0-windows-amd64.exe SHA256
+```
+
 Make it executable and move to installation directory:
 
+**Linux/macOS:**
 ```bash
 chmod +x nomos-provider-file-*
 sudo mv nomos-provider-file-* /usr/local/bin/nomos-provider-file
+```
+
+**Windows:**
+```powershell
+# Move to a directory in your PATH, e.g., C:\Program Files\nomos-provider-file\
+# Or add the current directory to PATH
 ```
 
 ### From Source
