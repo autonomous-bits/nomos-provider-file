@@ -2,7 +2,6 @@ package provider
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/autonomous-bits/nomos/libs/parser"
 	"github.com/autonomous-bits/nomos/libs/parser/pkg/ast"
@@ -91,11 +90,4 @@ func convertExpr(expr ast.Expr) (any, error) {
 	}
 }
 
-// Helper to read file content as string (for debugging)
-func readFileContent(filePath string) (string, error) {
-	content, err := os.ReadFile(filePath)
-	if err != nil {
-		return "", err
-	}
-	return string(content), nil
-}
+

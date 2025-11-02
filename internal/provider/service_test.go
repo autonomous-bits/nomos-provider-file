@@ -207,7 +207,9 @@ func TestFileProviderService_Health(t *testing.T) {
 	// After init - healthy
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.csl")
-	os.WriteFile(testFile, []byte("test: value"), 0644)
+	if err := os.WriteFile(testFile, []byte("test: value"), 0644); err != nil {
+		t.Fatalf("Failed to write test file: %v", err)
+	}
 
 	config, _ := structpb.NewStruct(map[string]any{
 		"directory": tmpDir,
