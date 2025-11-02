@@ -11,6 +11,8 @@ permissions:
 jobs:
   goreleaser:
     runs-on: ubuntu-latest
+    env:
+      GOPRIVATE: github.com/autonomous-bits/nomos
     steps:
       - name: Checkout
         uses: actions/checkout@v4

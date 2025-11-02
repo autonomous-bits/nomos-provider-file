@@ -9,6 +9,8 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      GOPRIVATE: github.com/autonomous-bits/nomos
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -31,6 +33,8 @@ jobs:
 
   lint:
     runs-on: ubuntu-latest
+    env:
+      GOPRIVATE: github.com/autonomous-bits/nomos
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -48,6 +52,8 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
+    env:
+      GOPRIVATE: github.com/autonomous-bits/nomos
     strategy:
       matrix:
         goos: [darwin, linux]
