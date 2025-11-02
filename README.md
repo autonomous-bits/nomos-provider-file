@@ -1,4 +1,4 @@
-# nomos-provider-file
+# Nomos File Provider
 
 Reference implementation of an external Nomos provider for file system access.
 
@@ -105,7 +105,7 @@ The provider accepts the following configuration in the `Init` RPC call:
 
 ### Prerequisites
 
-- Go 1.24.4 or later
+- Go 1.25+ or later
 - Protocol Buffers compiler (for regenerating proto stubs)
 - Local clone of the Nomos repository (for now, until modules are published)
 
