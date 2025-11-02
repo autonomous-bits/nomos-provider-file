@@ -17,31 +17,65 @@ This provider implements the Nomos Provider gRPC service contract to supply conf
 
 ### From GitHub Releases
 
-Download the appropriate binary for your platform:
+Download the appropriate archive for your platform:
 
+**Linux/macOS:**
 ```bash
 # macOS ARM64
-curl -LO https://github.com/autonomous-bits/nomos-provider-file/releases/download/v0.1.0/nomos-provider-file-0.1.0-darwin-arm64
+curl -LO https://github.com/autonomous-bits/nomos-provider-file/releases/download/v0.1.0/nomos-provider-file-0.1.0-darwin-arm64.tar.gz
 
 # macOS AMD64
-curl -LO https://github.com/autonomous-bits/nomos-provider-file/releases/download/v0.1.0/nomos-provider-file-0.1.0-darwin-amd64
+curl -LO https://github.com/autonomous-bits/nomos-provider-file/releases/download/v0.1.0/nomos-provider-file-0.1.0-darwin-amd64.tar.gz
 
 # Linux AMD64
-curl -LO https://github.com/autonomous-bits/nomos-provider-file/releases/download/v0.1.0/nomos-provider-file-0.1.0-linux-amd64
+curl -LO https://github.com/autonomous-bits/nomos-provider-file/releases/download/v0.1.0/nomos-provider-file-0.1.0-linux-amd64.tar.gz
+
+# Linux ARM64
+curl -LO https://github.com/autonomous-bits/nomos-provider-file/releases/download/v0.1.0/nomos-provider-file-0.1.0-linux-arm64.tar.gz
+```
+
+**Windows (PowerShell):**
+```powershell
+# Windows AMD64
+curl -LO https://github.com/autonomous-bits/nomos-provider-file/releases/download/v0.1.0/nomos-provider-file-0.1.0-windows-amd64.tar.gz
+
+# Windows ARM64
+curl -LO https://github.com/autonomous-bits/nomos-provider-file/releases/download/v0.1.0/nomos-provider-file-0.1.0-windows-arm64.tar.gz
 ```
 
 Verify the checksum:
 
+**Linux/macOS:**
 ```bash
 curl -LO https://github.com/autonomous-bits/nomos-provider-file/releases/download/v0.1.0/SHA256SUMS
 shasum -a 256 -c SHA256SUMS
 ```
 
-Make it executable and move to installation directory:
+**Windows (PowerShell):**
+```powershell
+curl -LO https://github.com/autonomous-bits/nomos-provider-file/releases/download/v0.1.0/SHA256SUMS
+# Verify checksum manually
+```
 
+Extract and install:
+
+**Linux/macOS:**
 ```bash
-chmod +x nomos-provider-file-*
-sudo mv nomos-provider-file-* /usr/local/bin/nomos-provider-file
+# Extract the archive
+tar -xzf nomos-provider-file-0.1.0-*.tar.gz
+
+# Make executable and install
+chmod +x nomos-provider-file
+sudo mv nomos-provider-file /usr/local/bin/
+```
+
+**Windows (PowerShell):**
+```powershell
+# Extract the archive (tar is available in Windows 10+ or Git Bash)
+tar -xzf nomos-provider-file-0.1.0-windows-*.tar.gz
+
+# Move to a directory in your PATH, e.g., C:\Program Files\nomos-provider-file\
+# Or add the extracted directory to PATH
 ```
 
 ### From Source

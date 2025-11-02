@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2025-11-02
+
+### Added
+- Windows build support for amd64 and arm64 architectures
+- Linux arm64 build support (previously missing from releases)
+- Archive-based distribution with documentation files included
+
+### Changed
+- Release artifacts now packaged as `.tar.gz` archives instead of raw binaries
+- Each archive includes executable, LICENSE, README.md, and CHANGELOG.md
+- Updated installation instructions for archive-based distribution
+- Updated CI workflow to build Windows targets
+
 ## [0.1.0] - 2025-11-02
 
 ### Added
@@ -20,5 +33,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GoReleaser configuration for automated releases
 - README with usage and installation instructions
 
-[Unreleased]: https://github.com/autonomous-bits/nomos-provider-file/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/autonomous-bits/nomos-provider-file/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/autonomous-bits/nomos-provider-file/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/autonomous-bits/nomos-provider-file/releases/tag/v0.1.0

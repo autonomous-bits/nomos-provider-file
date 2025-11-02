@@ -16,6 +16,9 @@ build-all: clean
 	GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME)-$(VERSION)-darwin-arm64 ./cmd/provider
 	GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME)-$(VERSION)-darwin-amd64 ./cmd/provider
 	GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME)-$(VERSION)-linux-amd64 ./cmd/provider
+	GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME)-$(VERSION)-linux-arm64 ./cmd/provider
+	GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME)-$(VERSION)-windows-amd64.exe ./cmd/provider
+	GOOS=windows GOARCH=arm64 go build -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME)-$(VERSION)-windows-arm64.exe ./cmd/provider
 	@echo "Generating checksums..."
 	@cd $(BUILD_DIR) && shasum -a 256 $(BINARY_NAME)-* > SHA256SUMS
 

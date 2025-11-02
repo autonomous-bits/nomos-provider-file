@@ -8,12 +8,13 @@ before:
 builds:
   - id: provider
     main: ./cmd/provider
-    binary: nomos-provider-file-{{ .Version }}-{{ .Os }}-{{ .Arch }}
+    binary: nomos-provider-file
     env:
       - CGO_ENABLED=0
     goos:
       - darwin
       - linux
+      - windows
     goarch:
       - amd64
       - arm64
@@ -22,8 +23,12 @@ builds:
       - -X main.version={{ .Version }}
 
 archives:
-  - format: binary
-    name_template: '{{ .Binary }}'
+  - id: default
+    name_template: 'nomos-provider-file-{{ .Version }}-{{ .Os }}-{{ .Arch }}'
+    files:
+      - LICENSE
+      - README.md
+      - CHANGELOG.md
 
 checksum:
   name_template: 'SHA256SUMS'
@@ -51,20 +56,42 @@ release:
     
     This release provides prebuilt binaries for the Nomos file provider.
     
+    Each archive includes:
+    - The `nomos-provider-file` executable
+    - `LICENSE` file
+    - `README.md` documentation
+    - `CHANGELOG.md` release notes
+    
     ### Installation
     
-    Download the appropriate binary for your platform and verify the checksum:
+    Download the appropriate archive for your platform and verify the checksum:
     
+    **Linux/macOS:**
     ```bash
-    # Download binary
-    curl -LO https://github.com/autonomous-bits/nomos-provider-file/releases/download/v{{ .Version }}/nomos-provider-file-{{ .Version }}-<os>-<arch>
+    # Download archive
+    curl -LO https://github.com/autonomous-bits/nomos-provider-file/releases/download/v{{ .Version }}/nomos-provider-file-{{ .Version }}-<os>-<arch>.tar.gz
     
     # Verify checksum
     curl -LO https://github.com/autonomous-bits/nomos-provider-file/releases/download/v{{ .Version }}/SHA256SUMS
     shasum -a 256 -c SHA256SUMS
     
-    # Make executable
-    chmod +x nomos-provider-file-{{ .Version }}-<os>-<arch>
+    # Extract
+    tar -xzf nomos-provider-file-{{ .Version }}-<os>-<arch>.tar.gz
+    
+    # Install
+    chmod +x nomos-provider-file
+    sudo mv nomos-provider-file /usr/local/bin/
+    ```
+    
+    **Windows:**
+    ```powershell
+    # Download archive
+    curl -LO https://github.com/autonomous-bits/nomos-provider-file/releases/download/v{{ .Version }}/nomos-provider-file-{{ .Version }}-windows-<arch>.tar.gz
+    
+    # Extract (requires tar, available in Windows 10+ or Git Bash)
+    tar -xzf nomos-provider-file-{{ .Version }}-windows-<arch>.tar.gz
+    
+    # Move to PATH directory as needed
     ```
     
     ### Changes
