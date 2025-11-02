@@ -1,3 +1,6 @@
+github.com/autonomous-bits/nomos/libs/compiler v0.1.0/go.mod h1:2fm33cRXrbbZkQNRJFf7H3X+PScBl93ULqpwQ0OdAmY=
+github.com/autonomous-bits/nomos/libs/parser v0.1.0/go.mod h1:In46Yk+rFNlngegScybQKftbU7YEuJuPUhlNrLpcaDE=
+github.com/autonomous-bits/nomos/libs/provider-proto v0.1.0/go.mod h1:IN6RXL73txFLTM2p9CrA6YFyx+IJYvuS+dGpt9BCkis=
 github.com/go-logr/logr v1.4.3 h1:CjnDlHq8ikf6E492q6eKboGOC0T8CDaOvkHCIg8idEI=
 github.com/go-logr/logr v1.4.3/go.mod h1:9T104GzyrTigFIr8wt5mBrctHMim0Nb2HLGrmQ40KvY=
 github.com/go-logr/stdr v1.2.2 h1:hSWxHoqTgW2S2qGc0LTAI563KZ5YKYRhT3MFKZMbjag=
