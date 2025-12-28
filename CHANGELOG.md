@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2025-12-28
+
+### Changed
+- Updated Go version to 1.25.5 across all CI workflows and documentation
+- Updated Go module dependencies to latest versions
+
 ## [0.1.1] - 2025-11-02
 
 ### Added
@@ -31,7 +37,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comprehensive test suite with >80% coverage
 - CI/CD pipeline with GitHub Actions
 - GoReleaser configuration for automated releases
-- README with usage and installation instructions
+- README with usage and installation instructions2...HEAD
+[0.1.2]: https://github.com/autonomous-bits/nomos-provider-file/compare/v0.1.1...v0.1.2
 
 [Unreleased]: https://github.com/autonomous-bits/nomos-provider-file/compare/v0.1.1...HEAD
 [0.1.1]: https://github.com/autonomous-bits/nomos-provider-file/compare/v0.1.0...v0.1.1

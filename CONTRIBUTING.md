@@ -6,7 +6,7 @@ Thank you for your interest in contributing to the Nomos file provider!
 
 ### Prerequisites
 
-- Go 1.25+ or later
+- Go 1.25.5 or later
 - Make
 - Git
 
