@@ -1,10 +1,10 @@
 module github.com/autonomous-bits/nomos-provider-file
 
-go 1.25.3
+go 1.25.5
 
 require (
-	github.com/autonomous-bits/nomos/libs/parser v0.1.0
-	github.com/autonomous-bits/nomos/libs/provider-proto v0.1.1
+	github.com/autonomous-bits/nomos/libs/parser v0.8.0
+	github.com/autonomous-bits/nomos/libs/provider-proto v0.2.0
 	google.golang.org/grpc v1.76.0
 	google.golang.org/protobuf v1.36.10
 )
