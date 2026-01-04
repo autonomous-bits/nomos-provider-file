@@ -35,3 +35,9 @@ Thumbs.db
 # Temporary files
 tmp/
 temp/
+
+# AI agent and specification files
+.github/agents/
+.github/prompts/
+.specify/
+specs/
