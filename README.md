@@ -2,6 +2,9 @@
 
 Reference implementation of an external Nomos provider for file system access.
 
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](/LICENSE)
+[![Go Version](https://img.shields.io/badge/Go-1.25%2B-blue)](https://go.dev/)
+
 ## Overview
 
 This provider implements the Nomos Provider gRPC service contract to supply configuration data from local file system directories. It reads `.csl` files from a configured directory and makes them available to the Nomos compiler via gRPC.
