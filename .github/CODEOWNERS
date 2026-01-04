@@ -1,0 +1,14 @@
+# CODEOWNERS file
+# This file defines code ownership for the repository.
+# Lines starting with '#' are comments.
+# Each line is a file pattern followed by one or more owners.
+#
+# More details: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner for everything in the repo
+# Unless a later match takes precedence, @pewpewpotato will be requested for review
+* @pewpewpotato
+
+# You can add more specific rules if needed in the future, for example:
+# /docs/ @pewpewpotato @other-user
+# *.md @pewpewpotato @doc-team
