@@ -7,7 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.1] - 2026-01-14
+## [0.2.1] - 2026-01-14
+
+### Fixed
+- Fetch method now automatically detects single vs multi-instance mode for path resolution
+- Single instance mode: path starts with filename directly (e.g., `["prod", "database", "name"]`)
+- Multi-instance mode: path must include alias first (e.g., `["configs", "prod", "database", "name"]`)
+- Fixed "provider instance not found" error when using single provider with file references
+
+### Note
+- This fix ensures backward compatibility with Nomos CLI's reference resolution behavior
+
+## [0.2.0] - 2026-01-14
 
 ### Added
 - Multiple provider instance support - enables users to work with multiple configuration directories simultaneously
@@ -57,6 +68,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - README with usage and installation instructions2...HEAD
 [0.1.2]: https://github.com/autonomous-bits/nomos-provider-file/compare/v0.1.1...v0.1.2
 
-[Unreleased]: https://github.com/autonomous-bits/nomos-provider-file/compare/v0.1.1...HEAD
-[0.1.1]: https://github.com/autonomous-bits/nomos-provider-file/compare/v0.1.0...v0.1.1
+[Unreleased]: https://github.com/autonomous-bits/nomos-provider-file/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/autonomous-bits/nomos-provider-file/compare/v0.2.0...v0.2.1
+[0.2.0]: https://github.com/autonomous-bits/nomos-provider-file/compare/v0.1.2...v0.2.0
+[0.1.2]: https://github.com/autonomous-bits/nomos-provider-file/compare/v0.1.1...v0.1.2
 [0.1.0]: https://github.com/autonomous-bits/nomos-provider-file/releases/tag/v0.1.0
