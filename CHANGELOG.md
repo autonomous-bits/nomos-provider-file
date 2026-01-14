@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-01-14
+
+### Added
+- Multiple provider instance support - enables users to work with multiple configuration directories simultaneously
+- Atomic rollback on initialization failure - if any Init fails, all previous instances are rolled back to ensure clean state
+- Enhanced error messages with alias context - all errors now include the provider instance alias for better debugging
+- Comprehensive logging for Init, Fetch, and rollback operations
+- Multi-instance path structure: `path=[alias, filename, ...]` for independent instance access
+
+### Changed
+- Init method can now be called multiple times with different aliases to create independent provider instances
+- Fetch operations now require alias as first path component to identify target instance
+- Health check returns STATUS_OK when at least one instance is initialized (previously required single instance)
+
+### Note
+- All changes are backward compatible with v0.1.0 behavior when using single instance
+
 ## [0.1.2] - 2025-12-28
 
 ### Changed

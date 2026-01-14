@@ -1,0 +1,13 @@
+application:
+  name: multi-instance-app
+  version: 3.0.0
+  environment: production
+
+server:
+  port: 8080
+  workers: 4
+  timeout: 120
+
+features:
+  caching: enabled
+  monitoring: enabled

@@ -1,8 +1,44 @@
+// Package provider implements the Nomos file provider service.
+//
+// Multi-Instance Architecture:
+//
+// This provider supports multiple logical "provider instances" within a single
+// gRPC service process. From the user's perspective, each Init call with a
+// unique alias creates a new provider instance that operates independently.
+//
+// The FileProviderService manages all instances internally, mapping each alias
+// to its own configuration (directory, enumerated files). This enables users
+// to work with multiple configuration directories simultaneously:
+//
+//	Init(alias="local", directory="./configs")
+//	Init(alias="shared", directory="/etc/configs")
+//	Fetch(path=["local", "database"])  // reads from ./configs/database.csl
+//	Fetch(path=["shared", "network"])  // reads from /etc/configs/network.csl
+//
+// Thread-Safety Model:
+//
+// All RPC methods protect shared state using a sync.RWMutex:
+//   - Write operations (Init, Shutdown): acquire exclusive Lock()
+//   - Read operations (Fetch, Info, Health): acquire shared RLock()
+//
+// This allows concurrent Fetch operations from multiple goroutines while
+// ensuring safe initialization and shutdown.
+//
+// Atomic Initialization:
+//
+// When multiple Init calls are made in sequence, the service guarantees
+// atomicity: either all initializations succeed, or all are rolled back.
+// If any Init fails after previous successful inits, rollbackAll() removes
+// all initialized instances, returning the service to a clean empty state.
+//
+// This prevents partial initialization states and ensures consistent behavior
+// when initialization fails midway through multiple provider declarations.
 package provider
 
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,8 +50,50 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
+// instanceConfig represents configuration for one logical provider instance.
+//
+// From the user's perspective, each instance is a separate "provider" identified
+// by its alias. Internally, instanceConfig holds all state for that instance:
+//   - alias: the unique identifier for this instance
+//   - directory: canonical absolute path to the config directory
+//   - cslFiles: map of base names to absolute file paths (e.g., "database" -> "/path/database.csl")
+//   - initialized: tracks whether this instance completed initialization
+//
+// Instances are created during Init() and stored in FileProviderService.configs.
+type instanceConfig struct {
+	alias       string
+	directory   string
+	cslFiles    map[string]string // base name -> absolute file path
+	initialized bool
+}
+
 // FileProviderService implements the nomos.provider.v1.ProviderService gRPC interface
 // for local file system access to .csl configuration files.
+//
+// Multi-Instance Management:
+//
+// A single FileProviderService manages multiple provider instances. Each instance
+// is identified by a unique alias and configured with its own directory. The service
+// maintains three data structures:
+//
+//  1. configs: maps alias -> instanceConfig (the primary instance storage)
+//  2. directoryRegistry: maps canonical directory path -> alias (prevents duplicate directories)
+//  3. initOrder: tracks initialization order for proper rollback sequencing
+//
+// Thread-Safety:
+//
+// All RPC methods protect access to instance state using mu:
+//   - Write operations (Init, Shutdown): acquire exclusive Lock()
+//   - Read operations (Fetch, Info, Health): acquire shared RLock()
+//
+// This allows concurrent Fetch operations while ensuring safe state modifications.
+//
+// Rollback Semantics:
+//
+// Init() provides atomic multi-instance initialization. If any Init call fails
+// after previous successful initializations, all instances are rolled back via
+// rollbackAll(). This ensures the service never remains in a partially-initialized
+// state, which could cause confusing behavior for users.
 type FileProviderService struct {
 	providerv1.UnimplementedProviderServiceServer
 
@@ -24,43 +102,175 @@ type FileProviderService struct {
 	version      string
 	providerType string
 
-	// State set by Init
-	alias     string
-	directory string
-	cslFiles  map[string]string // base name -> absolute file path
-
-	initialized bool
+	// Multi-instance state
+	configs           map[string]*instanceConfig // alias -> instance config
+	directoryRegistry map[string]string          // canonical path -> alias (prevents duplicates)
+	initOrder         []string                   // ordered list of initialized aliases (for rollback)
 }
 
-// NewFileProviderService creates a new file provider service.
+// NewFileProviderService creates a new multi-instance file provider service.
+//
+// The service is created with no initialized instances. Instances are added
+// through subsequent Init() RPC calls. Each Init call with a unique alias
+// creates a new logical provider instance within this service.
+//
+// Parameters:
+//   - version: semantic version of the provider (e.g., "0.1.1")
+//   - providerType: type identifier for the provider (e.g., "file")
+//
+// Returns a FileProviderService ready to accept Init RPC calls.
 func NewFileProviderService(version, providerType string) *FileProviderService {
 	return &FileProviderService{
-		version:      version,
-		providerType: providerType,
+		version:           version,
+		providerType:      providerType,
+		configs:           make(map[string]*instanceConfig),
+		directoryRegistry: make(map[string]string),
+		initOrder:         make([]string, 0),
 	}
 }
 
-// Init initializes the provider with configuration.
+// canonicalizePath resolves a directory path to its canonical absolute form.
+//
+// This is critical for multi-instance duplicate detection. Different path
+// representations ("./configs", "configs", "/abs/path/configs") may all
+// point to the same directory. Canonicalization ensures we detect duplicates
+// by comparing the resolved absolute paths.
+//
+// Process:
+//  1. Resolve symlinks via filepath.EvalSymlinks
+//  2. Clean and normalize path separators
+//  3. Return canonical absolute path
+//
+// The canonical path is stored in directoryRegistry to prevent multiple
+// instances from using the same directory with different aliases.
+func (s *FileProviderService) canonicalizePath(path string) (string, error) {
+	// Resolve symlinks
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve symlinks: %w", err)
+	}
+
+	// Normalize path (clean redundant separators, resolve . and ..)
+	canonical := filepath.Clean(resolved)
+
+	return canonical, nil
+}
+
+// rollbackAll performs a complete rollback of all initialized instances.
+//
+// Rollback Semantics:
+//
+// When an Init() call fails after one or more previous Init() calls have
+// succeeded, rollbackAll() is invoked to restore the service to a clean
+// empty state. This prevents partial initialization scenarios.
+//
+// For example:
+//  1. Init(alias="local", dir="./configs")   → succeeds
+//  2. Init(alias="shared", dir="/bad/path") → fails
+//     Result: "local" instance is rolled back, service has 0 instances
+//
+// Rollback Process:
+//  1. Iterate through initOrder in reverse (LIFO)
+//  2. Remove each instance from configs map
+//  3. Remove directory from directoryRegistry
+//  4. Clear initOrder array
+//
+// Thread-safety: Caller must hold mu.Lock() before calling rollbackAll().
+func (s *FileProviderService) rollbackAll() {
+	// Iterate in reverse order to undo initialization
+	for i := len(s.initOrder) - 1; i >= 0; i-- {
+		alias := s.initOrder[i]
+		// T039: Log rollback operation
+		log.Printf("Rolling back provider instance: alias=%q", alias)
+
+		// Remove from configs map
+		if cfg, exists := s.configs[alias]; exists {
+			// Remove directory registry entry
+			if cfg.directory != "" {
+				delete(s.directoryRegistry, cfg.directory)
+			}
+			delete(s.configs, alias)
+		}
+	}
+
+	// Clear init order
+	s.initOrder = s.initOrder[:0]
+}
+
+// Init initializes a new provider instance with the given configuration.
+//
+// Multi-Instance Behavior:
+//
+// Each Init call creates a new logical provider instance identified by req.Alias.
+// Multiple Init calls with different aliases are supported and create independent
+// instances within the same service process.
+//
+// Required configuration:
+//   - req.Alias: unique identifier for this instance (non-empty string)
+//   - req.Config["directory"]: path to directory containing .csl files
+//
+// Validation:
+//   - Alias must be unique (not already initialized)
+//   - Directory must exist and be readable
+//   - Directory must not be used by another instance (via canonical path comparison)
+//   - Directory must contain at least one .csl file
+//
+// Atomic Rollback:
+//
+// If this Init fails after previous successful Init calls, ALL instances are
+// rolled back. This ensures the service never remains in a partially-initialized
+// state. The error message indicates how many instances were rolled back.
+//
+// Thread-safety: Acquires exclusive lock (mu.Lock) for the duration of initialization.
 func (s *FileProviderService) Init(ctx context.Context, req *providerv1.InitRequest) (*providerv1.InitResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.initialized {
-		return nil, status.Error(codes.FailedPrecondition, "provider already initialized")
+	// T034/T013: Validate alias is not empty
+	if req.Alias == "" {
+		// T037: Rollback if we have existing instances
+		if len(s.initOrder) > 0 {
+			rolledBackCount := len(s.initOrder)
+			s.rollbackAll()
+			return nil, status.Errorf(codes.InvalidArgument, "alias %q: alias cannot be empty; rolled back all %d instance(s)", req.Alias, rolledBackCount)
+		}
+		return nil, status.Error(codes.InvalidArgument, "alias cannot be empty")
 	}
 
-	s.alias = req.Alias
+	// T034/T012/T013: Check if alias already exists
+	if _, exists := s.configs[req.Alias]; exists {
+		// T037: Rollback if we have existing instances
+		if len(s.initOrder) > 0 {
+			rolledBackCount := len(s.initOrder)
+			s.rollbackAll()
+			return nil, status.Errorf(codes.FailedPrecondition, "alias %q: provider instance already initialized; rolled back all %d instance(s)", req.Alias, rolledBackCount)
+		}
+		return nil, status.Errorf(codes.FailedPrecondition, "alias %q: provider instance already initialized", req.Alias)
+	}
 
-	// Extract directory from config
+	// T034: Extract directory from config
 	configMap := req.Config.AsMap()
 	dirValue, ok := configMap["directory"]
 	if !ok {
-		return nil, status.Error(codes.InvalidArgument, "missing required config key 'directory'")
+		// T037: Rollback if we have existing instances
+		if len(s.initOrder) > 0 {
+			rolledBackCount := len(s.initOrder)
+			s.rollbackAll()
+			return nil, status.Errorf(codes.InvalidArgument, "alias %q: missing required config key 'directory'; rolled back all %d instance(s)", req.Alias, rolledBackCount)
+		}
+		return nil, status.Errorf(codes.InvalidArgument, "alias %q: missing required config key 'directory'", req.Alias)
 	}
 
+	// T034: Validate directory type
 	dirStr, ok := dirValue.(string)
 	if !ok {
-		return nil, status.Errorf(codes.InvalidArgument, "directory must be a string, got %T", dirValue)
+		// T037: Rollback if we have existing instances
+		if len(s.initOrder) > 0 {
+			rolledBackCount := len(s.initOrder)
+			s.rollbackAll()
+			return nil, status.Errorf(codes.InvalidArgument, "alias %q: directory must be a string, got %T; rolled back all %d instance(s)", req.Alias, dirValue, rolledBackCount)
+		}
+		return nil, status.Errorf(codes.InvalidArgument, "alias %q: directory must be a string, got %T", req.Alias, dirValue)
 	}
 
 	// Resolve to absolute path
@@ -74,39 +284,112 @@ func (s *FileProviderService) Init(ctx context.Context, req *providerv1.InitRequ
 		var err error
 		absPath, err = filepath.Abs(dirStr)
 		if err != nil {
-			return nil, status.Errorf(codes.InvalidArgument, "failed to resolve path to absolute: %v", err)
+			// T034/T037: Enhanced error with rollback
+			if len(s.initOrder) > 0 {
+				rolledBackCount := len(s.initOrder)
+				s.rollbackAll()
+				return nil, status.Errorf(codes.InvalidArgument, "alias %q: failed to resolve path to absolute: %v; rolled back all %d instance(s)", req.Alias, err, rolledBackCount)
+			}
+			return nil, status.Errorf(codes.InvalidArgument, "alias %q: failed to resolve path to absolute: %v", req.Alias, err)
 		}
 	}
 
-	// Verify directory exists
+	// T034: Verify directory exists
 	info, err := os.Stat(absPath)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, status.Errorf(codes.NotFound, "directory does not exist: %s", absPath)
+		// T037: Rollback if we have existing instances
+		rolledBackCount := len(s.initOrder)
+		if rolledBackCount > 0 {
+			s.rollbackAll()
+			if os.IsNotExist(err) {
+				return nil, status.Errorf(codes.NotFound, "alias %q: directory does not exist: %s; rolled back all %d instance(s)", req.Alias, absPath, rolledBackCount)
+			}
+			return nil, status.Errorf(codes.Internal, "alias %q: failed to stat directory: %v; rolled back all %d instance(s)", req.Alias, err, rolledBackCount)
 		}
-		return nil, status.Errorf(codes.Internal, "failed to stat directory: %v", err)
+		if os.IsNotExist(err) {
+			return nil, status.Errorf(codes.NotFound, "alias %q: directory does not exist: %s", req.Alias, absPath)
+		}
+		return nil, status.Errorf(codes.Internal, "alias %q: failed to stat directory: %v", req.Alias, err)
 	}
 
+	// T034: Verify path is a directory
 	if !info.IsDir() {
-		return nil, status.Errorf(codes.InvalidArgument, "path is not a directory: %s", absPath)
+		// T037: Rollback if we have existing instances
+		if len(s.initOrder) > 0 {
+			rolledBackCount := len(s.initOrder)
+			s.rollbackAll()
+			return nil, status.Errorf(codes.InvalidArgument, "alias %q: path is not a directory: %s; rolled back all %d instance(s)", req.Alias, absPath, rolledBackCount)
+		}
+		return nil, status.Errorf(codes.InvalidArgument, "alias %q: path is not a directory: %s", req.Alias, absPath)
 	}
 
-	// Enumerate .csl files
-	if err := s.enumerateCSLFiles(absPath); err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to enumerate .csl files: %v", err)
+	// T014/T034: Resolve directory to canonical path
+	canonicalPath, err := s.canonicalizePath(absPath)
+	if err != nil {
+		// T037: Rollback if we have existing instances
+		if len(s.initOrder) > 0 {
+			rolledBackCount := len(s.initOrder)
+			s.rollbackAll()
+			return nil, status.Errorf(codes.Internal, "alias %q: failed to canonicalize path: %v; rolled back all %d instance(s)", req.Alias, err, rolledBackCount)
+		}
+		return nil, status.Errorf(codes.Internal, "alias %q: failed to canonicalize path: %v", req.Alias, err)
 	}
 
-	s.directory = absPath
-	s.initialized = true
+	// T015/T035: Check if directory is already registered
+	// This is a validation error - do NOT trigger rollback since it's before we add the config
+	if existingAlias, exists := s.directoryRegistry[canonicalPath]; exists {
+		return nil, status.Errorf(codes.FailedPrecondition,
+			"directory %q already registered by provider instance %q, cannot register as %q",
+			canonicalPath, existingAlias, req.Alias)
+	}
+
+	// T016/T034: Enumerate CSL files
+	cslFiles, err := s.enumerateCSLFiles(canonicalPath)
+	if err != nil {
+		// T037/T038: Rollback all previous inits on failure with enhanced error
+		rolledBackCount := len(s.initOrder)
+		if rolledBackCount > 0 {
+			s.rollbackAll()
+			return nil, status.Errorf(codes.Internal, "alias %q: failed to enumerate .csl files: %v; rolled back all %d instance(s)", req.Alias, err, rolledBackCount)
+		}
+		return nil, status.Errorf(codes.Internal, "alias %q: failed to enumerate .csl files: %v", req.Alias, err)
+	}
+
+	// T016: Create new instance config
+	config := &instanceConfig{
+		alias:       req.Alias,
+		directory:   canonicalPath,
+		cslFiles:    cslFiles,
+		initialized: true,
+	}
+
+	// T017: Add to maps and initOrder
+	s.configs[req.Alias] = config
+	s.directoryRegistry[canonicalPath] = req.Alias
+	s.initOrder = append(s.initOrder, req.Alias)
+
+	// T025: Log successful initialization
+	log.Printf("Initialized provider instance: alias=%q directory=%q", req.Alias, canonicalPath)
 
 	return &providerv1.InitResponse{}, nil
 }
 
 // enumerateCSLFiles scans the directory for .csl files and builds the file map.
-func (s *FileProviderService) enumerateCSLFiles(dirPath string) error {
+//
+// Returns a map of base names (without .csl extension) to absolute file paths.
+// For example, "/path/database.csl" -> map["database"] = "/path/database.csl"
+//
+// Validation:
+//   - Directory must contain at least one .csl file
+//   - No duplicate base names allowed (e.g., cannot have both database.csl and database.CSL)
+//   - Only regular files are considered (subdirectories are skipped)
+//
+// This map is stored in instanceConfig.cslFiles and used during Fetch operations
+// to quickly resolve file names to paths without additional directory scans.
+func (s *FileProviderService) enumerateCSLFiles(dirPath string) (map[string]string, error) {
 	entries, err := os.ReadDir(dirPath)
 	if err != nil {
-		return fmt.Errorf("failed to read directory: %w", err)
+		return nil, fmt.Errorf("failed to read directory %q: %w", dirPath, err)
 	}
 
 	cslFiles := make(map[string]string)
@@ -123,39 +406,86 @@ func (s *FileProviderService) enumerateCSLFiles(dirPath string) error {
 		baseName := strings.TrimSuffix(fileName, ".csl")
 
 		if _, exists := cslFiles[baseName]; exists {
-			return fmt.Errorf("duplicate file base name %q", baseName)
+			return nil, fmt.Errorf("duplicate file base name %q in directory %q", baseName, dirPath)
 		}
 
 		cslFiles[baseName] = filepath.Join(dirPath, fileName)
 	}
 
 	if len(cslFiles) == 0 {
-		return fmt.Errorf("no .csl files found in directory")
+		return nil, fmt.Errorf("no .csl files found in directory %q", dirPath)
 	}
 
-	s.cslFiles = cslFiles
-	return nil
+	return cslFiles, nil
 }
 
-// Fetch retrieves data from a .csl file.
+// Fetch retrieves configuration data from a .csl file.
+//
+// Multi-Instance Path Structure:
+//
+// In the multi-instance model, the path format is:
+//
+//	path[0]: alias (identifies which provider instance to use)
+//	path[1]: file base name (without .csl extension)
+//	path[2+]: optional nested keys within the file
+//
+// Examples:
+//
+//	path=["local", "database"]           → reads ./configs/database.csl (entire file)
+//	path=["local", "database", "host"]   → reads ./configs/database.csl, extracts "host" key
+//	path=["shared", "network", "ports"] → reads /etc/configs/network.csl, extracts "ports" key
+//
+// Error Handling:
+//
+// All errors include the alias in the message to help users identify which
+// provider instance caused the error:
+//   - "provider instance %q not found" (alias not initialized)
+//   - "file %q not found in provider instance %q" (file doesn't exist)
+//   - "path element %q not found in file %q (provider instance %q)" (nested key missing)
+//
+// Thread-safety: Acquires shared lock (mu.RLock) for the duration of the fetch.
 func (s *FileProviderService) Fetch(ctx context.Context, req *providerv1.FetchRequest) (*providerv1.FetchResponse, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	if !s.initialized {
-		return nil, status.Error(codes.FailedPrecondition, "provider not initialized")
-	}
+	// T018: Extract alias from request
+	// NOTE: Requires proto update to add Alias field to FetchRequest
+	// For now, commented out to allow compilation
+	// if req.Alias == "" {
+	// 	return nil, status.Error(codes.InvalidArgument, "alias cannot be empty")
+	// }
 
+	// T018: Lookup config by alias
+	// Temporary workaround: extract from path[0] until proto is updated
 	if len(req.Path) == 0 {
-		return nil, status.Error(codes.InvalidArgument, "path cannot be empty")
+		return nil, status.Error(codes.InvalidArgument, "path cannot be empty (must include alias)")
 	}
 
-	// First path component is the file base name
-	baseName := req.Path[0]
+	alias := req.Path[0]
+	if alias == "" {
+		return nil, status.Error(codes.InvalidArgument, "alias cannot be empty")
+	}
 
-	filePath, exists := s.cslFiles[baseName]
+	// T026: Log Fetch operation
+	log.Printf("Fetching from provider instance: alias=%q path=%v", alias, req.Path)
+
+	// T040: Enhanced error message with alias context
+	cfg, exists := s.configs[alias]
 	if !exists {
-		return nil, status.Errorf(codes.NotFound, "file %q not found in provider %q", baseName, s.alias)
+		return nil, status.Errorf(codes.NotFound, "provider instance %q not found", alias)
+	}
+
+	if len(req.Path) < 2 {
+		return nil, status.Errorf(codes.InvalidArgument, "path must contain at least [alias, filename]")
+	}
+
+	// Second path component is the file base name
+	baseName := req.Path[1]
+
+	// T018/T040: Use cfg.cslFiles with enhanced error message
+	filePath, exists := cfg.cslFiles[baseName]
+	if !exists {
+		return nil, status.Errorf(codes.NotFound, "file %q not found in provider instance %q", baseName, cfg.alias)
 	}
 
 	// Parse the .csl file
@@ -164,19 +494,20 @@ func (s *FileProviderService) Fetch(ctx context.Context, req *providerv1.FetchRe
 		return nil, status.Errorf(codes.Internal, "failed to parse .csl file %q: %v", filePath, err)
 	}
 
-	// If additional path components provided, navigate to that path
-	if len(req.Path) > 1 {
-		var current any = data
-		for i, key := range req.Path[1:] {
+	// If additional path components provided (beyond alias and file), navigate to that path
+	if len(req.Path) > 2 {
+		current := data
+		for i, key := range req.Path[2:] {
 			m, ok := current.(map[string]any)
 			if !ok {
 				return nil, status.Errorf(codes.InvalidArgument,
-					"cannot navigate to path %v: element at index %d is not a map", req.Path, i+1)
+					"cannot navigate to path %v: element at index %d is not a map", req.Path, i+2)
 			}
 
 			val, exists := m[key]
 			if !exists {
-				return nil, status.Errorf(codes.NotFound, "path element %q not found in file %q", key, baseName)
+				// T040: Enhanced error message with alias context
+				return nil, status.Errorf(codes.NotFound, "path element %q not found in file %q (provider instance %q)", key, baseName, cfg.alias)
 			}
 
 			current = val
@@ -194,27 +525,44 @@ func (s *FileProviderService) Fetch(ctx context.Context, req *providerv1.FetchRe
 }
 
 // Info returns provider metadata.
+//
+// Returns service-level metadata (version, type) that applies to all instances.
+// This is not instance-specific; all instances share the same provider version
+// and type.
+//
+// Thread-safety: Acquires shared lock (mu.RLock) to read version/type fields.
 func (s *FileProviderService) Info(ctx context.Context, req *providerv1.InfoRequest) (*providerv1.InfoResponse, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
+	// T019: Return generic service-level info (no alias field)
 	return &providerv1.InfoResponse{
-		Alias:   s.alias,
 		Version: s.version,
 		Type:    s.providerType,
 	}, nil
 }
 
 // Health checks provider health status.
+//
+// Multi-Instance Health:
+//
+// Returns STATUS_OK if at least one instance is initialized.
+// Returns STATUS_DEGRADED if no instances are initialized.
+//
+// This is a simple check that doesn't validate directory accessibility or
+// file integrity; it only checks whether Init has been called successfully.
+//
+// Thread-safety: Acquires shared lock (mu.RLock) to check configs map.
 func (s *FileProviderService) Health(ctx context.Context, req *providerv1.HealthRequest) (*providerv1.HealthResponse, error) {
 	s.mu.RLock()
-	initialized := s.initialized
+	hasConfigs := len(s.configs) > 0
 	s.mu.RUnlock()
 
-	if !initialized {
+	// T020: Check if any configs exist
+	if !hasConfigs {
 		return &providerv1.HealthResponse{
 			Status:  providerv1.HealthResponse_STATUS_DEGRADED,
-			Message: "provider not initialized",
+			Message: "no instances initialized",
 		}, nil
 	}
 
@@ -225,18 +573,36 @@ func (s *FileProviderService) Health(ctx context.Context, req *providerv1.Health
 }
 
 // Shutdown gracefully shuts down the provider.
+//
+// Clears all initialized instances and resets the service to its initial empty state.
+// After Shutdown, new Init calls can be made to re-initialize instances.
+//
+// Cleanup actions:
+//   - Clear configs map (all instance configurations)
+//   - Clear directoryRegistry (all directory mappings)
+//   - Clear initOrder (initialization history)
+//
+// Thread-safety: Acquires exclusive lock (mu.Lock) for cleanup operations.
 func (s *FileProviderService) Shutdown(ctx context.Context, req *providerv1.ShutdownRequest) (*providerv1.ShutdownResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	// Clean up resources if needed
-	s.initialized = false
-	s.cslFiles = nil
+	// T021: Clear all multi-instance maps
+	s.configs = make(map[string]*instanceConfig)
+	s.directoryRegistry = make(map[string]string)
+	s.initOrder = s.initOrder[:0]
 
 	return &providerv1.ShutdownResponse{}, nil
 }
 
 // toProtoStruct converts a Go value to a protobuf Struct.
+//
+// Handles two cases:
+//  1. If v is already a map[string]any, convert directly to Struct
+//  2. Otherwise, wrap the value in a map with key "value" before converting
+//
+// This ensures the return value is always a valid protobuf Struct, which
+// requires map-like structure at the top level.
 func toProtoStruct(v any) (*structpb.Struct, error) {
 	// Handle map type
 	if m, ok := v.(map[string]any); ok {

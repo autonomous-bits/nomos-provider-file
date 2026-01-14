@@ -1,0 +1,11 @@
+vpc:
+  cidr: 192.168.0.0/16
+  region: eu-central-1
+
+subnets:
+  public: 192.168.10.0/24
+  private: 192.168.20.0/24
+
+security:
+  firewall: enabled
+  ddos-protection: true

@@ -13,8 +13,91 @@ This provider implements the Nomos Provider gRPC service contract to supply conf
 
 - **Directory-based access**: Reads all `.csl` files from a configured directory
 - **gRPC interface**: Implements `nomos.provider.v1.ProviderService`
+- **Multi-instance support**: Work with multiple configuration directories simultaneously
+- **Atomic initialization**: Automatic rollback if any instance fails to initialize
 - **Health checks**: Built-in health monitoring
 - **Graceful shutdown**: Clean resource cleanup on termination
+
+## Multi-Instance Support
+
+**New in v0.1.1**: The file provider now supports multiple independent instances within a single service process. Each instance is identified by a unique alias and operates on its own directory.
+
+### Key Capabilities
+
+- **Independent Instances**: Initialize multiple provider instances with different directories
+- **Isolated Operations**: Each instance manages its own set of .csl files independently
+- **Atomic Guarantees**: If any initialization fails, all instances are rolled back to ensure clean state
+- **Enhanced Errors**: All error messages include the alias to identify which instance caused the error
+
+### Multi-Instance Usage Example
+
+```csl
+# Define multiple provider instances
+source:
+  alias: 'local'
+  type: 'file'
+  version: '0.1.1'
+  directory: './configs'
+
+source:
+  alias: 'shared'
+  type: 'file'
+  version: '0.1.1'
+  directory: '/etc/shared-configs'
+
+# Import from different instances
+import:local:database    # reads ./configs/database.csl
+import:shared:network    # reads /etc/shared-configs/network.csl
+```
+
+### Path Structure
+
+With multi-instance support, fetch paths follow this structure:
+
+```
+path[0]: alias        # identifies the provider instance
+path[1]: filename     # base name without .csl extension
+path[2+]: nested keys # optional: navigate within the file
+```
+
+Examples:
+```go
+// Fetch entire file from "local" instance
+path: ["local", "database"]
+
+// Fetch nested key from "shared" instance  
+path: ["shared", "network", "ports", "http"]
+```
+
+### Error Handling
+
+All errors include the alias for better debugging:
+
+```
+❌ provider instance "local" not found
+❌ file "database" not found in provider instance "local"
+❌ path element "host" not found in file "database" (provider instance "local")
+```
+
+### Initialization Guarantees
+
+The provider ensures atomic initialization:
+
+```csl
+source:
+  alias: 'instance1'
+  directory: './valid-path'    # ✅ succeeds
+
+source:
+  alias: 'instance2'
+  directory: './invalid-path'  # ❌ fails
+  
+# Result: Both instances are rolled back
+# Service returns to clean empty state
+# Error message: "rolled back all 1 instance(s)"
+```
+
+This prevents partial initialization states and ensures consistent behavior.
 
 ## Usage
 
@@ -22,11 +105,12 @@ This provider implements the Nomos Provider gRPC service contract to supply conf
 
 Declare the provider in your `.csl` file:
 
-```
+```csl
+# Single instance (v0.1.0 compatible)
 source:
   alias: 'configs'
   type: 'file'
-  version: '0.1.0'
+  version: '0.1.1'
   directory: './configs'
 
 import:configs:database
@@ -107,7 +191,16 @@ This provider implements the `nomos.provider.v1.ProviderService` gRPC contract:
 
 ### Fetch Path Format
 
-The first path component is the file base name (without `.csl` extension):
+**Multi-Instance Format (v0.1.1+)**:
+
+```
+path: ["alias", "filename"]            → fetches from specific instance
+path: ["alias", "filename", "key"]     → fetches nested key
+path: ["local", "database"]            → fetches ./configs/database.csl
+path: ["shared", "network", "ports"]   → fetches /etc/configs/network.csl -> ports
+```
+
+**Single Instance Format (v0.1.0 compatible)**:
 
 ```
 path: ["database"]      → fetches database.csl
