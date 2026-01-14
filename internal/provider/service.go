@@ -423,7 +423,14 @@ func (s *FileProviderService) enumerateCSLFiles(dirPath string) (map[string]stri
 //
 // Multi-Instance Path Structure:
 //
-// In the multi-instance model, the path format is:
+// The path format adapts based on the number of initialized instances:
+//
+// Single Instance Mode (only one Init called):
+//
+//	path[0]: file base name (without .csl extension)
+//	path[1+]: optional nested keys within the file
+//
+// Multi-Instance Mode (multiple Init calls):
 //
 //	path[0]: alias (identifies which provider instance to use)
 //	path[1]: file base name (without .csl extension)
@@ -431,9 +438,15 @@ func (s *FileProviderService) enumerateCSLFiles(dirPath string) (map[string]stri
 //
 // Examples:
 //
-//	path=["local", "database"]           → reads ./configs/database.csl (entire file)
-//	path=["local", "database", "host"]   → reads ./configs/database.csl, extracts "host" key
-//	path=["shared", "network", "ports"] → reads /etc/configs/network.csl, extracts "ports" key
+//	Single instance:
+//	  path=["database"]           → reads database.csl (entire file)
+//	  path=["database", "host"]   → reads database.csl, extracts "host" key
+//	  path=["prod", "database", "name"] → reads prod.csl, extracts "database.name" path
+//
+//	Multi-instance:
+//	  path=["configs", "database"]           → reads database.csl from "configs" instance
+//	  path=["configs", "database", "host"]   → reads database.csl, extracts "host" key
+//	  path=["configs", "prod", "database", "name"] → reads prod.csl, extracts "database.name"
 //
 // Error Handling:
 //
@@ -456,31 +469,51 @@ func (s *FileProviderService) Fetch(ctx context.Context, req *providerv1.FetchRe
 	// }
 
 	// T018: Lookup config by alias
-	// Temporary workaround: extract from path[0] until proto is updated
+	// Determine if path includes alias or not
 	if len(req.Path) == 0 {
-		return nil, status.Error(codes.InvalidArgument, "path cannot be empty (must include alias)")
+		return nil, status.Error(codes.InvalidArgument, "path cannot be empty")
 	}
 
-	alias := req.Path[0]
-	if alias == "" {
-		return nil, status.Error(codes.InvalidArgument, "alias cannot be empty")
+	// Check for empty first path element
+	if req.Path[0] == "" {
+		return nil, status.Error(codes.InvalidArgument, "path[0] cannot be empty")
+	}
+
+	var cfg *instanceConfig
+	var baseName string
+	var pathOffset int
+
+	// Try to determine if path[0] is an alias or a filename
+	// Check if path[0] matches an initialized instance alias
+	if possibleCfg, exists := s.configs[req.Path[0]]; exists {
+		// path[0] is an alias - multi-instance explicit mode
+		cfg = possibleCfg
+		pathOffset = 1
+		if len(req.Path) < 2 {
+			return nil, status.Errorf(codes.InvalidArgument, "path must contain at least [alias, filename]")
+		}
+		baseName = req.Path[1]
+	} else {
+		// path[0] is not an alias - check if we have exactly one instance (single-instance mode)
+		if len(s.configs) == 0 {
+			return nil, status.Error(codes.FailedPrecondition, "no provider instances initialized")
+		}
+		if len(s.configs) == 1 {
+			// Single instance - path[0] is the filename
+			for _, c := range s.configs {
+				cfg = c
+				break
+			}
+			pathOffset = 0
+			baseName = req.Path[0]
+		} else {
+			// Multiple instances but path[0] is not a valid alias
+			return nil, status.Errorf(codes.NotFound, "provider instance %q not found (hint: with multiple instances, path must start with alias)", req.Path[0])
+		}
 	}
 
 	// T026: Log Fetch operation
-	log.Printf("Fetching from provider instance: alias=%q path=%v", alias, req.Path)
-
-	// T040: Enhanced error message with alias context
-	cfg, exists := s.configs[alias]
-	if !exists {
-		return nil, status.Errorf(codes.NotFound, "provider instance %q not found", alias)
-	}
-
-	if len(req.Path) < 2 {
-		return nil, status.Errorf(codes.InvalidArgument, "path must contain at least [alias, filename]")
-	}
-
-	// Second path component is the file base name
-	baseName := req.Path[1]
+	log.Printf("Fetching from provider instance: alias=%q path=%v", cfg.alias, req.Path)
 
 	// T018/T040: Use cfg.cslFiles with enhanced error message
 	filePath, exists := cfg.cslFiles[baseName]
@@ -494,14 +527,15 @@ func (s *FileProviderService) Fetch(ctx context.Context, req *providerv1.FetchRe
 		return nil, status.Errorf(codes.Internal, "failed to parse .csl file %q: %v", filePath, err)
 	}
 
-	// If additional path components provided (beyond alias and file), navigate to that path
-	if len(req.Path) > 2 {
+	// If additional path components provided (beyond alias/filename and file), navigate to that path
+	nestedPathStart := pathOffset + 1 // Skip alias (if present) and filename
+	if len(req.Path) > nestedPathStart {
 		current := data
-		for i, key := range req.Path[2:] {
+		for i, key := range req.Path[nestedPathStart:] {
 			m, ok := current.(map[string]any)
 			if !ok {
 				return nil, status.Errorf(codes.InvalidArgument,
-					"cannot navigate to path %v: element at index %d is not a map", req.Path, i+2)
+					"cannot navigate to path %v: element at index %d is not a map", req.Path, i+nestedPathStart)
 			}
 
 			val, exists := m[key]
