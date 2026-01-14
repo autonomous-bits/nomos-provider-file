@@ -498,7 +498,7 @@ func TestFetch_ErrorPaths(t *testing.T) {
 			name:          "empty alias in path",
 			path:          []string{""},
 			expectedCode:  codes.InvalidArgument,
-			expectedInMsg: "alias cannot be empty",
+			expectedInMsg: "path[0] cannot be empty",
 		},
 		{
 			name:          "path too short (no filename)",
