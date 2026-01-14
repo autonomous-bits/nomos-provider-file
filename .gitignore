@@ -40,4 +40,5 @@ temp/
 .github/agents/
 .github/prompts/
 .specify/
-specs//provider
+specs/
+provider
