@@ -9,11 +9,42 @@ import (
 	"sync"
 	"testing"
 
+	"runtime"
+
 	providerv1 "github.com/autonomous-bits/nomos/libs/provider-proto/gen/go/nomos/provider/v1"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 )
+
+// getFixturePath returns the absolute path to a test fixture directory.
+// It works by finding the repository root relative to the test file location.
+func getFixturePath(t *testing.T, relativePath string) string {
+	t.Helper()
+
+	// Get the directory of the current test file
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("Failed to get test file path")
+	}
+
+	// Navigate up from internal/provider to repo root
+	// internal/provider/service_test.go -> repo root is 2 levels up
+	repoRoot := filepath.Join(filepath.Dir(filename), "..", "..")
+
+	fixturePath := filepath.Join(repoRoot, relativePath)
+	absPath, err := filepath.Abs(fixturePath)
+	if err != nil {
+		t.Fatalf("Failed to get absolute path for %s: %v", fixturePath, err)
+	}
+
+	// Verify the path exists
+	if _, err := os.Stat(absPath); err != nil {
+		t.Fatalf("Fixture path does not exist: %s (error: %v)", absPath, err)
+	}
+
+	return absPath
+}
 
 func TestFileProviderService_Init(t *testing.T) {
 	// Create temp directory with test files
@@ -1244,9 +1275,9 @@ func TestEnumerateCSLFiles_ReadDirError(t *testing.T) {
 func TestMultipleInit_TwoDirectories(t *testing.T) {
 	svc := NewFileProviderService("0.1.0", "file")
 
-	// Absolute paths to test fixtures
-	dir1 := "/Users/wernerswart/repos/nomos-provider-file/tests/fixtures/multi-instance/dir1"
-	dir2 := "/Users/wernerswart/repos/nomos-provider-file/tests/fixtures/multi-instance/dir2"
+	// Get test fixture paths
+	dir1 := getFixturePath(t, "tests/fixtures/multi-instance/dir1")
+	dir2 := getFixturePath(t, "tests/fixtures/multi-instance/dir2")
 
 	// First Init call - instance1 with dir1
 	config1, err := structpb.NewStruct(map[string]any{
@@ -1345,10 +1376,10 @@ func TestMultipleInit_TwoDirectories(t *testing.T) {
 func TestMultipleInit_ThreeOrMoreDirectories(t *testing.T) {
 	svc := NewFileProviderService("0.1.0", "file")
 
-	// Absolute paths to all three test fixtures
-	dir1 := "/Users/wernerswart/repos/nomos-provider-file/tests/fixtures/multi-instance/dir1"
-	dir2 := "/Users/wernerswart/repos/nomos-provider-file/tests/fixtures/multi-instance/dir2"
-	dir3 := "/Users/wernerswart/repos/nomos-provider-file/tests/fixtures/multi-instance/dir3"
+	// Get test fixture paths
+	dir1 := getFixturePath(t, "tests/fixtures/multi-instance/dir1")
+	dir2 := getFixturePath(t, "tests/fixtures/multi-instance/dir2")
+	dir3 := getFixturePath(t, "tests/fixtures/multi-instance/dir3")
 
 	// Initialize three instances
 	testCases := []struct {
@@ -1438,9 +1469,9 @@ func TestMultipleInit_ThreeOrMoreDirectories(t *testing.T) {
 func TestFetch_IndependentInstances(t *testing.T) {
 	svc := NewFileProviderService("0.1.0", "file")
 
-	// Absolute paths to test fixtures
-	dir1 := "/Users/wernerswart/repos/nomos-provider-file/tests/fixtures/multi-instance/dir1"
-	dir2 := "/Users/wernerswart/repos/nomos-provider-file/tests/fixtures/multi-instance/dir2"
+	// Get test fixture paths
+	dir1 := getFixturePath(t, "tests/fixtures/multi-instance/dir1")
+	dir2 := getFixturePath(t, "tests/fixtures/multi-instance/dir2")
 
 	// Initialize two instances
 	config1, err := structpb.NewStruct(map[string]any{
@@ -1580,9 +1611,9 @@ func TestFetch_IndependentInstances(t *testing.T) {
 func TestStateIsolation_FileList(t *testing.T) {
 	svc := NewFileProviderService("0.1.0", "file")
 
-	// Absolute paths to test fixtures
-	dir1 := "/Users/wernerswart/repos/nomos-provider-file/tests/fixtures/multi-instance/dir1"
-	dir2 := "/Users/wernerswart/repos/nomos-provider-file/tests/fixtures/multi-instance/dir2"
+	// Get test fixture paths
+	dir1 := getFixturePath(t, "tests/fixtures/multi-instance/dir1")
+	dir2 := getFixturePath(t, "tests/fixtures/multi-instance/dir2")
 
 	// Initialize first instance with dir1 (contains database.csl)
 	config1, err := structpb.NewStruct(map[string]any{
@@ -1679,9 +1710,9 @@ func TestStateIsolation_FileList(t *testing.T) {
 func TestStateIsolation_ConfigParameters(t *testing.T) {
 	svc := NewFileProviderService("0.1.0", "file")
 
-	// Absolute paths to test fixtures
-	dir1 := "/Users/wernerswart/repos/nomos-provider-file/tests/fixtures/multi-instance/dir1"
-	dir2 := "/Users/wernerswart/repos/nomos-provider-file/tests/fixtures/multi-instance/dir2"
+	// Get test fixture paths
+	dir1 := getFixturePath(t, "tests/fixtures/multi-instance/dir1")
+	dir2 := getFixturePath(t, "tests/fixtures/multi-instance/dir2")
 
 	// Initialize first instance
 	config1, err := structpb.NewStruct(map[string]any{
@@ -1795,9 +1826,9 @@ func TestStateIsolation_ConfigParameters(t *testing.T) {
 func TestStateIsolation_ErrorPropagation(t *testing.T) {
 	svc := NewFileProviderService("0.1.0", "file")
 
-	// Absolute paths to test fixtures
-	dir1 := "/Users/wernerswart/repos/nomos-provider-file/tests/fixtures/multi-instance/dir1"
-	dir2 := "/Users/wernerswart/repos/nomos-provider-file/tests/fixtures/multi-instance/dir2"
+	// Get test fixture paths
+	dir1 := getFixturePath(t, "tests/fixtures/multi-instance/dir1")
+	dir2 := getFixturePath(t, "tests/fixtures/multi-instance/dir2")
 
 	// Initialize two instances
 	config1, err := structpb.NewStruct(map[string]any{
@@ -1932,11 +1963,26 @@ func TestStateIsolation_ErrorPropagation(t *testing.T) {
 //
 // Run with: go test -bench=BenchmarkMultipleInit -benchtime=1x ./internal/provider
 func BenchmarkMultipleInit(b *testing.B) {
+	// Get test fixture paths dynamically
+	// Navigate from internal/provider to repo root
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		b.Fatal("Failed to get test file path")
+	}
+	repoRoot := filepath.Join(filepath.Dir(filename), "..", "..")
+
 	// Source test fixtures to copy from
 	sourceDirs := []string{
-		"/Users/wernerswart/repos/nomos-provider-file/tests/fixtures/multi-instance/dir1",
-		"/Users/wernerswart/repos/nomos-provider-file/tests/fixtures/multi-instance/dir2",
-		"/Users/wernerswart/repos/nomos-provider-file/tests/fixtures/multi-instance/dir3",
+		filepath.Join(repoRoot, "tests/fixtures/multi-instance/dir1"),
+		filepath.Join(repoRoot, "tests/fixtures/multi-instance/dir2"),
+		filepath.Join(repoRoot, "tests/fixtures/multi-instance/dir3"),
+	}
+
+	// Verify source directories exist
+	for _, dir := range sourceDirs {
+		if _, err := os.Stat(dir); err != nil {
+			b.Fatalf("Source directory does not exist: %s", dir)
+		}
 	}
 
 	// Helper to setup temporary directories with CSL files
@@ -2018,7 +2064,7 @@ func BenchmarkMultipleInit(b *testing.B) {
 		tempDirs := setupTempDirs(b, 10)
 		defer func() {
 			for _, dir := range tempDirs {
-				os.RemoveAll(dir)
+				_ = os.RemoveAll(dir) // Best effort cleanup in benchmark
 			}
 		}()
 
@@ -2036,7 +2082,7 @@ func BenchmarkMultipleInit(b *testing.B) {
 		tempDirs := setupTempDirs(b, 100)
 		defer func() {
 			for _, dir := range tempDirs {
-				os.RemoveAll(dir)
+				_ = os.RemoveAll(dir) // Best effort cleanup in benchmark
 			}
 		}()
 
@@ -2055,9 +2101,9 @@ func BenchmarkMultipleInit(b *testing.B) {
 func TestConcurrentFetch(t *testing.T) {
 	svc := NewFileProviderService("0.1.0", "file")
 
-	// Absolute paths to test fixtures
-	dir1 := "/Users/wernerswart/repos/nomos-provider-file/tests/fixtures/multi-instance/dir1"
-	dir2 := "/Users/wernerswart/repos/nomos-provider-file/tests/fixtures/multi-instance/dir2"
+	// Get test fixture paths
+	dir1 := getFixturePath(t, "tests/fixtures/multi-instance/dir1")
+	dir2 := getFixturePath(t, "tests/fixtures/multi-instance/dir2")
 
 	// Initialize two instances
 	config1, err := structpb.NewStruct(map[string]any{
@@ -2225,8 +2271,8 @@ func TestConcurrentFetch(t *testing.T) {
 func TestInit_DuplicateDirectory(t *testing.T) {
 	svc := NewFileProviderService("0.1.0", "file")
 
-	// Absolute path to test fixture
-	dir1 := "/Users/wernerswart/repos/nomos-provider-file/tests/fixtures/multi-instance/dir1"
+	// Get test fixture path
+	dir1 := getFixturePath(t, "tests/fixtures/multi-instance/dir1")
 
 	// First Init - should succeed
 	config1, err := structpb.NewStruct(map[string]any{
@@ -2441,8 +2487,8 @@ func TestInit_EmptyDirectory(t *testing.T) {
 func TestInit_RollbackOnFailure(t *testing.T) {
 	svc := NewFileProviderService("0.1.0", "file")
 
-	// Absolute path to test fixture
-	dir1 := "/Users/wernerswart/repos/nomos-provider-file/tests/fixtures/multi-instance/dir1"
+	// Get test fixture path
+	dir1 := getFixturePath(t, "tests/fixtures/multi-instance/dir1")
 
 	// First Init - should succeed
 	config1, err := structpb.NewStruct(map[string]any{
@@ -2521,10 +2567,10 @@ func TestInit_RollbackOnFailure(t *testing.T) {
 func TestInit_RollbackMultiple(t *testing.T) {
 	svc := NewFileProviderService("0.1.0", "file")
 
-	// Absolute paths to test fixtures
-	dir1 := "/Users/wernerswart/repos/nomos-provider-file/tests/fixtures/multi-instance/dir1"
-	dir2 := "/Users/wernerswart/repos/nomos-provider-file/tests/fixtures/multi-instance/dir2"
-	dir3 := "/Users/wernerswart/repos/nomos-provider-file/tests/fixtures/multi-instance/dir3"
+	// Get test fixture paths
+	dir1 := getFixturePath(t, "tests/fixtures/multi-instance/dir1")
+	dir2 := getFixturePath(t, "tests/fixtures/multi-instance/dir2")
+	dir3 := getFixturePath(t, "tests/fixtures/multi-instance/dir3")
 
 	// Initialize THREE instances successfully
 	testCases := []struct {
