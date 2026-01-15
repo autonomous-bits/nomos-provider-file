@@ -7,17 +7,18 @@
 // process only ever has ONE configuration initialized.
 //
 // Example Nomos usage:
-//   User's config.csl:
-//     source: { alias: "dev", type: "file", directory: "./dev" }
-//     source: { alias: "prod", type: "file", directory: "./prod" }
 //
-//   Nomos spawns:
-//     - provider-file process #1 → Init(alias="dev", directory="./dev")
-//     - provider-file process #2 → Init(alias="prod", directory="./prod")
+//	User's config.csl:
+//	  source: { alias: "dev", type: "file", directory: "./dev" }
+//	  source: { alias: "prod", type: "file", directory: "./prod" }
 //
-//   When fetching:
-//     - Process #1 receives Fetch(path=["database"]) → reads ./dev/database.csl
-//     - Process #2 receives Fetch(path=["database"]) → reads ./prod/database.csl
+//	Nomos spawns:
+//	  - provider-file process #1 → Init(alias="dev", directory="./dev")
+//	  - provider-file process #2 → Init(alias="prod", directory="./prod")
+//
+//	When fetching:
+//	  - Process #1 receives Fetch(path=["database"]) → reads ./dev/database.csl
+//	  - Process #2 receives Fetch(path=["database"]) → reads ./prod/database.csl
 //
 // Thread-Safety:
 //
@@ -104,10 +105,8 @@ func (s *FileProviderService) Init(ctx context.Context, req *providerv1.InitRequ
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	// Check if already initialized
-	if s.config != nil && s.config.initialized {
-		return nil, status.Errorf(codes.FailedPrecondition, "provider already initialized as %q", s.config.alias)
-	}
+	// Allow re-initialization - each Init call replaces previous configuration
+	// This supports flexible CLI instantiation patterns
 
 	// Validate alias
 	if req.Alias == "" {
@@ -207,13 +206,15 @@ func (s *FileProviderService) enumerateCSLFiles(dirPath string) (map[string]stri
 // Fetch retrieves configuration data from a .csl file.
 //
 // Path Structure:
-//   path[0]: file base name (without .csl extension)
-//   path[1+]: optional nested keys within the file
+//
+//	path[0]: file base name (without .csl extension)
+//	path[1+]: optional nested keys within the file
 //
 // Examples:
-//   path=["database"]           → reads database.csl (entire file)
-//   path=["database", "host"]   → reads database.csl, extracts "host" key
-//   path=["prod", "database"]   → reads prod.csl, extracts "database" key
+//
+//	path=["database"]           → reads database.csl (entire file)
+//	path=["database", "host"]   → reads database.csl, extracts "host" key
+//	path=["prod", "database"]   → reads prod.csl, extracts "database" key
 func (s *FileProviderService) Fetch(ctx context.Context, req *providerv1.FetchRequest) (*providerv1.FetchResponse, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

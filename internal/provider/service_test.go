@@ -68,15 +68,18 @@ func TestInit_AlreadyInitialized(t *testing.T) {
 		t.Fatalf("First Init failed: %v", err)
 	}
 
-	// Second init should fail
-	_, err := svc.Init(context.Background(), req)
-	if err == nil {
-		t.Fatal("Expected second Init to fail")
+	// Second init should also succeed (re-initialization allowed)
+	if _, err := svc.Init(context.Background(), req); err != nil {
+		t.Fatalf("Second Init failed: %v", err)
 	}
 
-	st := status.Convert(err)
-	if st.Code() != codes.FailedPrecondition {
-		t.Errorf("Expected FailedPrecondition, got %v", st.Code())
+	// Verify the service is still healthy and operational
+	healthResp, err := svc.Health(context.Background(), &providerv1.HealthRequest{})
+	if err != nil {
+		t.Fatalf("Health check failed: %v", err)
+	}
+	if healthResp.Status != providerv1.HealthResponse_STATUS_OK {
+		t.Errorf("Expected STATUS_OK, got %v", healthResp.Status)
 	}
 }
 
