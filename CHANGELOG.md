@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **BREAKING**: Simplified to single-instance architecture - each provider process now serves exactly ONE configuration
+- Removed multi-instance tracking within a single process (Nomos spawns separate processes per alias)
+- Path format simplified: `path=[filename, nested, keys...]` (alias no longer in path)
+- Reduced code complexity and memory footprint
+
+### Removed
+- Multi-instance support within single process (not needed given Nomos architecture)
+- Rollback logic for multiple instances
+- Directory registry and init order tracking
+
+### Note
+- This change aligns with Nomos's actual architecture where each source alias spawns a separate provider process
+- Each provider process only handles one Init call, making multi-instance tracking unnecessary
+- For users: No behavioral changes when using Nomos CLI (each alias still works independently)
+
 ## [0.2.1] - 2026-01-14
 
 ### Fixed
