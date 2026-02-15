@@ -200,6 +200,13 @@ path: ["local", "database"]            → fetches ./configs/database.csl
 path: ["shared", "network", "ports"]   → fetches /etc/configs/network.csl -> ports
 ```
 
+**Wildcard Expansion (v0.1.1+)**:
+
+```
+path: ["alias", "filename", "*"]     → returns the full object at that path (must be a map)
+path: ["*"]                           → merges all files in the directory, returns full object
+```
+
 **Single Instance Format (v0.1.0 compatible)**:
 
 ```

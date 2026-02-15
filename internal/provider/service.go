@@ -230,7 +230,7 @@ func (s *FileProviderService) Fetch(ctx context.Context, req *providerv1.FetchRe
 		return nil, status.Error(codes.InvalidArgument, "path cannot be empty")
 	}
 
-	if len(req.Path) == 1 && req.Path[0] == "." {
+	if len(req.Path) == 1 && req.Path[0] == "*" {
 		data, err := s.fetchAllFiles()
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "failed to fetch all files: %v", err)
@@ -249,9 +249,9 @@ func (s *FileProviderService) Fetch(ctx context.Context, req *providerv1.FetchRe
 	}
 
 	path := req.Path
-	expandAll := false
-	if len(path) > 1 && path[len(path)-1] == "." {
-		expandAll = true
+	expandWildcard := false
+	if len(path) > 1 && path[len(path)-1] == "*" {
+		expandWildcard = true
 		path = path[:len(path)-1]
 	}
 
@@ -290,7 +290,7 @@ func (s *FileProviderService) Fetch(ctx context.Context, req *providerv1.FetchRe
 		data = current
 	}
 
-	if expandAll {
+	if expandWildcard {
 		if _, ok := data.(map[string]any); !ok {
 			return nil, status.Error(codes.InvalidArgument, "cannot expand: target is not a map")
 		}

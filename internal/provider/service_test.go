@@ -435,7 +435,7 @@ func TestFetch_EmptyPath(t *testing.T) {
 	}
 }
 
-func TestFetch_DotAllFiles(t *testing.T) {
+func TestFetch_StarAllFiles(t *testing.T) {
 	svc := NewFileProviderService("0.1.0", "file")
 
 	tmpDir := t.TempDir()
@@ -474,7 +474,7 @@ common:
 	}
 
 	fetchReq := &providerv1.FetchRequest{
-		Path: []string{"."},
+		Path: []string{"*"},
 	}
 
 	resp, err := svc.Fetch(context.Background(), fetchReq)
@@ -500,7 +500,7 @@ common:
 	}
 }
 
-func TestFetch_TrailingDot(t *testing.T) {
+func TestFetch_TrailingStar(t *testing.T) {
 	svc := NewFileProviderService("0.1.0", "file")
 
 	tmpDir := t.TempDir()
@@ -527,7 +527,7 @@ func TestFetch_TrailingDot(t *testing.T) {
 	}
 
 	fetchReq := &providerv1.FetchRequest{
-		Path: []string{"config", "app", "."},
+		Path: []string{"config", "app", "*"},
 	}
 
 	resp, err := svc.Fetch(context.Background(), fetchReq)
@@ -541,5 +541,46 @@ func TestFetch_TrailingDot(t *testing.T) {
 	}
 	if data["version"] != "1.0.0" {
 		t.Errorf("Expected version '1.0.0', got %v", data["version"])
+	}
+}
+
+func TestFetch_TrailingStarScalar(t *testing.T) {
+	svc := NewFileProviderService("0.1.0", "file")
+
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "config.csl")
+	content := `app:
+  name: "myapp"
+  version: "1.0.0"
+`
+	if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	config, _ := structpb.NewStruct(map[string]any{
+		"directory": tmpDir,
+	})
+
+	initReq := &providerv1.InitRequest{
+		Alias:  "test",
+		Config: config,
+	}
+
+	if _, err := svc.Init(context.Background(), initReq); err != nil {
+		t.Fatalf("Init failed: %v", err)
+	}
+
+	fetchReq := &providerv1.FetchRequest{
+		Path: []string{"config", "app", "name", "*"},
+	}
+
+	_, err := svc.Fetch(context.Background(), fetchReq)
+	if err == nil {
+		t.Fatal("Expected error for trailing star on scalar")
+	}
+
+	st := status.Convert(err)
+	if st.Code() != codes.InvalidArgument {
+		t.Errorf("Expected InvalidArgument, got %v", st.Code())
 	}
 }
