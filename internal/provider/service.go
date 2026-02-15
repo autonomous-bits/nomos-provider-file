@@ -36,6 +36,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 
@@ -229,12 +230,33 @@ func (s *FileProviderService) Fetch(ctx context.Context, req *providerv1.FetchRe
 		return nil, status.Error(codes.InvalidArgument, "path cannot be empty")
 	}
 
+	if len(req.Path) == 1 && req.Path[0] == "." {
+		data, err := s.fetchAllFiles()
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "failed to fetch all files: %v", err)
+		}
+
+		value, err := toProtoStruct(data)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "failed to convert data: %v", err)
+		}
+
+		return &providerv1.FetchResponse{Value: value}, nil
+	}
+
 	if req.Path[0] == "" {
 		return nil, status.Error(codes.InvalidArgument, "path[0] cannot be empty")
 	}
 
+	path := req.Path
+	expandAll := false
+	if len(path) > 1 && path[len(path)-1] == "." {
+		expandAll = true
+		path = path[:len(path)-1]
+	}
+
 	// path[0] is the filename
-	baseName := req.Path[0]
+	baseName := path[0]
 
 	// Look up file
 	filePath, exists := s.config.cslFiles[baseName]
@@ -249,9 +271,9 @@ func (s *FileProviderService) Fetch(ctx context.Context, req *providerv1.FetchRe
 	}
 
 	// Navigate to nested path if provided
-	if len(req.Path) > 1 {
+	if len(path) > 1 {
 		current := data
-		for i, key := range req.Path[1:] {
+		for i, key := range path[1:] {
 			m, ok := current.(map[string]any)
 			if !ok {
 				return nil, status.Errorf(codes.InvalidArgument,
@@ -268,6 +290,12 @@ func (s *FileProviderService) Fetch(ctx context.Context, req *providerv1.FetchRe
 		data = current
 	}
 
+	if expandAll {
+		if _, ok := data.(map[string]any); !ok {
+			return nil, status.Error(codes.InvalidArgument, "cannot expand: target is not a map")
+		}
+	}
+
 	// Convert to protobuf
 	value, err := toProtoStruct(data)
 	if err != nil {
@@ -275,6 +303,58 @@ func (s *FileProviderService) Fetch(ctx context.Context, req *providerv1.FetchRe
 	}
 
 	return &providerv1.FetchResponse{Value: value}, nil
+}
+
+func (s *FileProviderService) fetchAllFiles() (map[string]any, error) {
+	baseNames := make([]string, 0, len(s.config.cslFiles))
+	for baseName := range s.config.cslFiles {
+		baseNames = append(baseNames, baseName)
+	}
+	sort.Strings(baseNames)
+
+	merged := make(map[string]any)
+	for _, baseName := range baseNames {
+		filePath := s.config.cslFiles[baseName]
+		data, err := parseCSLFile(filePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse file %q: %w", baseName, err)
+		}
+
+		dataMap, ok := data.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("file %q did not return a map", baseName)
+		}
+
+		merged = deepMergeMaps(merged, dataMap)
+	}
+
+	return merged, nil
+}
+
+func deepMergeMaps(dst, src map[string]any) map[string]any {
+	for key, value := range src {
+		srcMap, ok := value.(map[string]any)
+		if !ok {
+			dst[key] = value
+			continue
+		}
+
+		dstValue, exists := dst[key]
+		if !exists {
+			dst[key] = srcMap
+			continue
+		}
+
+		dstMap, ok := dstValue.(map[string]any)
+		if !ok {
+			dst[key] = srcMap
+			continue
+		}
+
+		dst[key] = deepMergeMaps(dstMap, srcMap)
+	}
+
+	return dst
 }
 
 // Info returns provider metadata.

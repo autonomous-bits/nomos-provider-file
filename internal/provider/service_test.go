@@ -434,3 +434,112 @@ func TestFetch_EmptyPath(t *testing.T) {
 		t.Errorf("Expected InvalidArgument, got %v", st.Code())
 	}
 }
+
+func TestFetch_DotAllFiles(t *testing.T) {
+	svc := NewFileProviderService("0.1.0", "file")
+
+	tmpDir := t.TempDir()
+	fileA := filepath.Join(tmpDir, "alpha.csl")
+	fileB := filepath.Join(tmpDir, "beta.csl")
+
+	contentA := `app:
+  name: "alpha"
+  port: "1111"
+common:
+  enabled: "true"
+`
+	contentB := `app:
+  port: "2222"
+  env: "prod"
+`
+
+	if err := os.WriteFile(fileA, []byte(contentA), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(fileB, []byte(contentB), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	config, _ := structpb.NewStruct(map[string]any{
+		"directory": tmpDir,
+	})
+
+	initReq := &providerv1.InitRequest{
+		Alias:  "test",
+		Config: config,
+	}
+
+	if _, err := svc.Init(context.Background(), initReq); err != nil {
+		t.Fatalf("Init failed: %v", err)
+	}
+
+	fetchReq := &providerv1.FetchRequest{
+		Path: []string{"."},
+	}
+
+	resp, err := svc.Fetch(context.Background(), fetchReq)
+	if err != nil {
+		t.Fatalf("Fetch failed: %v", err)
+	}
+
+	data := resp.Value.AsMap()
+	app := data["app"].(map[string]any)
+	if app["name"] != "alpha" {
+		t.Errorf("Expected name 'alpha', got %v", app["name"])
+	}
+	if app["port"] != "2222" {
+		t.Errorf("Expected port '2222', got %v", app["port"])
+	}
+	if app["env"] != "prod" {
+		t.Errorf("Expected env 'prod', got %v", app["env"])
+	}
+
+	common := data["common"].(map[string]any)
+	if common["enabled"] != "true" {
+		t.Errorf("Expected enabled 'true', got %v", common["enabled"])
+	}
+}
+
+func TestFetch_TrailingDot(t *testing.T) {
+	svc := NewFileProviderService("0.1.0", "file")
+
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "config.csl")
+	content := `app:
+  name: "myapp"
+  version: "1.0.0"
+`
+	if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	config, _ := structpb.NewStruct(map[string]any{
+		"directory": tmpDir,
+	})
+
+	initReq := &providerv1.InitRequest{
+		Alias:  "test",
+		Config: config,
+	}
+
+	if _, err := svc.Init(context.Background(), initReq); err != nil {
+		t.Fatalf("Init failed: %v", err)
+	}
+
+	fetchReq := &providerv1.FetchRequest{
+		Path: []string{"config", "app", "."},
+	}
+
+	resp, err := svc.Fetch(context.Background(), fetchReq)
+	if err != nil {
+		t.Fatalf("Fetch failed: %v", err)
+	}
+
+	data := resp.Value.AsMap()
+	if data["name"] != "myapp" {
+		t.Errorf("Expected name 'myapp', got %v", data["name"])
+	}
+	if data["version"] != "1.0.0" {
+		t.Errorf("Expected version '1.0.0', got %v", data["version"])
+	}
+}
