@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.3.3] - 2026-02-16
+## [0.3.4] - 2026-02-16
 
 ### Changed
 - Updated `nomos/libs/parser` to v0.9.0 to support `ListExpr` and `MapEntry` AST types
@@ -110,8 +110,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - README with usage and installation instructions2...HEAD
 [0.1.2]: https://github.com/autonomous-bits/nomos-provider-file/compare/v0.1.1...v0.1.2
 
-[Unreleased]: https://github.com/autonomous-bits/nomos-provider-file/compare/v0.3.3...HEAD
-[0.3.3]: https://github.com/autonomous-bits/nomos-provider-file/compare/v0.3.2...v0.3.3
+[Unreleased]: https://github.com/autonomous-bits/nomos-provider-file/compare/v0.3.4...HEAD
+[0.3.4]: https://github.com/autonomous-bits/nomos-provider-file/compare/v0.3.2...v0.3.4
 [0.3.2]: https://github.com/autonomous-bits/nomos-provider-file/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/autonomous-bits/nomos-provider-file/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/autonomous-bits/nomos-provider-file/compare/v0.2.1...v0.3.0
