@@ -1,7 +1,13 @@
+github.com/Masterminds/semver/v3 v3.4.0 h1:Zog+i5UMtVoCU8oKka5P7i9q9HgrJeGzI9SA1Xbatp0=
+github.com/Masterminds/semver/v3 v3.4.0/go.mod h1:4V+yj/TJE1HU9XfppCwVMZq3I84lprf4nC11bSS5beM=
 github.com/autonomous-bits/nomos/libs/parser v0.8.0 h1:DI6XMDhSDUdE0yaFwu9JnRTTQLm6MI4BM4AVgL6eKBs=
 github.com/autonomous-bits/nomos/libs/parser v0.8.0/go.mod h1:Afjkb+M0t/GxET4WMTA6ABURore2ZKWokG5m/tXJ5NA=
+github.com/autonomous-bits/nomos/libs/parser v0.9.0 h1:7OZZ8qGlpLfG7Hs7emA9IHkuRTlHYxIlvrmU42anC8w=
+github.com/autonomous-bits/nomos/libs/parser v0.9.0/go.mod h1:290dE58Gzj27SUsWEP7ssDDvjF8r/mtMW5BJ/5eKiYw=
 github.com/autonomous-bits/nomos/libs/provider-proto v0.2.0 h1:mad2RlBz7KrCT7aedVSaybRfGIBuoJ5f7qT2Eahngkw=
 github.com/autonomous-bits/nomos/libs/provider-proto v0.2.0/go.mod h1:h4TSiZ9R1IHokz2fWouaQ4SOOID8t8ij4zY3dEC/T8s=
+github.com/autonomous-bits/nomos/libs/provider-proto v0.2.1 h1:o0kwq2BvgLinEy0VO6LR8jmkcJXY8QP373tj7dASvtA=
+github.com/autonomous-bits/nomos/libs/provider-proto v0.2.1/go.mod h1:H1H7K1m0XMi/B1OvWWCj7/9gblv3FPYehyTKkXNtuYI=
 github.com/go-logr/logr v1.4.3 h1:CjnDlHq8ikf6E492q6eKboGOC0T8CDaOvkHCIg8idEI=
 github.com/go-logr/logr v1.4.3/go.mod h1:9T104GzyrTigFIr8wt5mBrctHMim0Nb2HLGrmQ40KvY=
 github.com/go-logr/stdr v1.2.2 h1:hSWxHoqTgW2S2qGc0LTAI563KZ5YKYRhT3MFKZMbjag=
