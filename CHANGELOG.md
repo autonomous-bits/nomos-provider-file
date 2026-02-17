@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.5] - 2026-02-17
+
+### Changed
+- Updated `nomos/libs/parser` to v0.10.0
+- Updated `nomos/libs/provider-proto` to v0.2.2
+
 ## [0.3.4] - 2026-02-16
 
 ### Changed
@@ -110,7 +116,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - README with usage and installation instructions2...HEAD
 [0.1.2]: https://github.com/autonomous-bits/nomos-provider-file/compare/v0.1.1...v0.1.2
 
-[Unreleased]: https://github.com/autonomous-bits/nomos-provider-file/compare/v0.3.4...HEAD
+[Unreleased]: https://github.com/autonomous-bits/nomos-provider-file/compare/v0.3.5...HEAD
+[0.3.5]: https://github.com/autonomous-bits/nomos-provider-file/compare/v0.3.4...v0.3.5
 [0.3.4]: https://github.com/autonomous-bits/nomos-provider-file/compare/v0.3.2...v0.3.4
 [0.3.2]: https://github.com/autonomous-bits/nomos-provider-file/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/autonomous-bits/nomos-provider-file/compare/v0.3.0...v0.3.1
