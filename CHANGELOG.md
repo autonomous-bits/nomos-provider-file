@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.6] - 2026-02-17
+
+### Fixed
+- Updated version constant to match actual release version (was incorrectly showing v0.2.1)
+
 ## [0.3.5] - 2026-02-17
 
 ### Changed
@@ -113,10 +118,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comprehensive test suite with >80% coverage
 - CI/CD pipeline with GitHub Actions
 - GoReleaser configuration for automated releases
-- README with usage and installation instructions2...HEAD
-[0.1.2]: https://github.com/autonomous-bits/nomos-provider-file/compare/v0.1.1...v0.1.2
+- README with usage and installation instructions
 
-[Unreleased]: https://github.com/autonomous-bits/nomos-provider-file/compare/v0.3.5...HEAD
+[Unreleased]: https://github.com/autonomous-bits/nomos-provider-file/compare/v0.3.6...HEAD
+[0.3.6]: https://github.com/autonomous-bits/nomos-provider-file/compare/v0.3.5...v0.3.6
 [0.3.5]: https://github.com/autonomous-bits/nomos-provider-file/compare/v0.3.4...v0.3.5
 [0.3.4]: https://github.com/autonomous-bits/nomos-provider-file/compare/v0.3.2...v0.3.4
 [0.3.2]: https://github.com/autonomous-bits/nomos-provider-file/compare/v0.3.1...v0.3.2
@@ -125,4 +130,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.2.1]: https://github.com/autonomous-bits/nomos-provider-file/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/autonomous-bits/nomos-provider-file/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/autonomous-bits/nomos-provider-file/compare/v0.1.1...v0.1.2
+[0.1.1]: https://github.com/autonomous-bits/nomos-provider-file/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/autonomous-bits/nomos-provider-file/releases/tag/v0.1.0
